@@ -4,6 +4,7 @@ const {
   ipcMain,
   session,
   dialog,
+  Menu,
 } = require("electron/main");
 const path = require("node:path");
 const fs = require("node:fs");
@@ -20,6 +21,38 @@ function checkForUpdatesOnce() {
   if (hasCheckedForUpdates || !app.isPackaged) return;
   hasCheckedForUpdates = true;
   autoUpdater.checkForUpdatesAndNotify();
+}
+
+function checkForUpdatesManual() {
+  if (!app.isPackaged) {
+    dialog.showMessageBox({
+      type: "info",
+      title: "Updates",
+      message: "Update checks are available only in packaged builds.",
+    });
+    return;
+  }
+
+  autoUpdater.checkForUpdates();
+}
+
+function setupAppMenu() {
+  const template = [
+    {
+      label: "Help",
+      submenu: [
+        {
+          label: "Check for Updates",
+          click: () => {
+            checkForUpdatesManual();
+          },
+        },
+      ],
+    },
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
 }
 
 // Auto reload during development
@@ -237,6 +270,11 @@ autoUpdater.on("error", (err) => {
   );
 });
 
+ipcMain.handle("check-for-updates-manual", async () => {
+  checkForUpdatesManual();
+  return { ok: true };
+});
+
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = "info";
 autoUpdater.disableWebInstaller = true;
@@ -244,6 +282,7 @@ autoUpdater.disableWebInstaller = true;
 //   ELECTRON APP EVENTS
 // -----------------------------------------------------
 app.whenReady().then(() => {
+  setupAppMenu();
   createWindow();
 
   if (app.isPackaged) {
